@@ -1,0 +1,91 @@
+# ============================================================
+#  M. Shahmeer — portfolio
+#  Apache config for cPanel / Hostinger style shared hosting.
+# ============================================================
+
+# ---------- compression ----------
+# three.min.js is ~654KB raw and ~165KB gzipped. Without this it ships
+# raw, which is the difference between a fast hero and a slow one.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+  AddOutputFilterByType DEFLATE application/javascript application/x-javascript text/javascript
+  AddOutputFilterByType DEFLATE application/json application/xml
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# Brotli where the host offers it — smaller again than gzip.
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/css text/javascript
+  AddOutputFilterByType BROTLI_COMPRESS application/javascript application/json
+  AddOutputFilterByType BROTLI_COMPRESS image/svg+xml
+</IfModule>
+
+# ---------- caching ----------
+# Libraries are versioned and never change, so cache them hard.
+# HTML stays uncached so content edits appear immediately.
+# Per-file Cache-Control below is what actually governs this; these are
+# only a fallback for hosts without mod_headers.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpeg              "access plus 1 week"
+  ExpiresByType image/png               "access plus 1 week"
+  ExpiresByType image/webp              "access plus 1 week"
+  ExpiresByType image/svg+xml           "access plus 1 week"
+  ExpiresByType image/x-icon            "access plus 1 week"
+  ExpiresByType text/html               "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Vendored libraries carry a version in their name and never change.
+  # These are the only files safe to cache hard.
+  <FilesMatch "^(three\.min\.js|lenis\.min\.js|lenis\.css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Your own files. Revalidated on every visit, so editing data.js and
+  # re-uploading shows up immediately instead of being stuck in someone's
+  # cache for a year. The files are small and revalidation is a 304.
+  <FilesMatch "^(data|app|scene)\.js$|^style\.css$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  # Images are usually re-uploaded under a new name, so cache them well
+  # but not permanently.
+  <FilesMatch "\.(jpg|jpeg|png|webp|svg|ico|woff2)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # ---------- basic hardening ----------
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header always unset X-Powered-By
+</IfModule>
+
+# ---------- correct MIME types ----------
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+  AddType image/svg+xml          .svg
+  AddType image/webp             .webp
+  AddType font/woff2             .woff2
+</IfModule>
+
+# ---------- tidy URLs ----------
+DirectoryIndex index.html
+
+# Serve /about instead of /about.html if pages are added later.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteCond %{REQUEST_URI} !\.html$
+  RewriteRule ^(.+)$ $1.html [L]
+</IfModule>
+
+# Never serve these.
+<FilesMatch "^(README\.md|\.gitignore|.*\.map)$">
+  Require all denied
+</FilesMatch>
